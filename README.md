@@ -36,7 +36,7 @@ Snooby is in the early stages of active development. Most of the code is structu
 
 ## TODO
 
-Pagination
-Flesh out errors
-Much more thorough configuration file
-Granular caching
+* Pagination
+* Flesh out errors
+* Much more thorough configuration file
+* Granular caching
