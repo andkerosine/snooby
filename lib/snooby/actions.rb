@@ -1,69 +1,78 @@
 module Snooby
-  # Mixin to provide functionality to all of the objects in one fell swoop,
-  # both relevant and irrelevant. Errors are thrown where nonsensical methods
-  # are called, but hopefully the intent is to use Snooby sensibly. I realize
-  # this is probably bad design, but it's just so damned clean.
-  module Actions
-    # Returns a hash containing the values supplied by about.json, so long as
-    # the calling object is a User or Subreddit.
+  module About
+    # Returns a hash containing the calling object's about.json data.
     def about
-      if !['user', 'subreddit'].include?(@kind)
-        raise RedditError, 'Only users and subreddits have about pages.'
-      end
-
       uri = URI(Paths[:"#{@kind}_about"] % @name)
-      JSON.parse(Conn.request(uri).body)['data']
+      JSON.parse(Snooby.request(uri))['data']
     end
+  end
 
-    # Returns an array of structs containing the object's posts.
-    def posts
-      if !['user', 'subreddit'].include?(@kind)
-        raise RedditError, 'Only users and subreddits have posts.'
-      end
-
-      Snooby.build(Post, :"#{@kind}_posts", @name)
+  module Posts
+    # Returns an array of structs containing the calling object's posts.
+    def posts(count = 25)
+      path = @name ? :"#{@kind}_posts" : :reddit
+      Snooby.build(Post, path, @name, count)
     end
+  end
 
-    # Returns an array of structs containing the object's comments.
-    def comments
-      if !['user', 'subreddit'].include?(@kind)
-        raise RedditError, 'Only users and subreddits have comments.'
-      end
-
-      Snooby.build(Comment, :"#{@kind}_comments", @name)
+  module Comments
+    # Returns an array of structs containing the calling object's comments.
+    # TODO: return more than just top-level comments for posts.
+    def comments(count = 25)
+      # @name suffices for users and subreddits, but a post's name is obtained
+      # from its struct; the "t3_" must be removed before making the API call.
+      @name ||= self.name[3..-1]
+      Snooby.build(Comment, :"#{@kind}_comments", @name, count)
     end
+  end
 
-    # Returns an array of 2-tuples containing the user's trophy information in
-    # the form of [name, description], the latter containing the empty string
-    # if inapplicable.
-    def trophies
-      raise RedditError, 'Only users have trophies.' if @kind != 'user'
-
-      # Only interested in trophies; request the minimum amount of content.
-      html = Conn.request(URI(Paths[:user] % @name) + '?limit=1').body
-      # Entry-level black magic.
-      html.scan(/"trophy-name">(.+?)<.+?"\s?>([^<]*)</)
-    end
-
-    # Posts a reply to the caller as the currently authorized user, so long as
-    # that caller is a Post or Comment.
+  module Reply
+    # Posts a reply to the calling object, which is either a post or a comment.
     def reply(text)
-      raise RedditError, 'You must be authorized to comment.' if !Snooby.auth
+      raise RedditError, 'You are not logged in.' unless Snooby.active
 
-      if !['post', 'comment'].include?(@kind)
-        raise RedditError, "Replying to a #{@kind} doesn't make much sense."
+      data = {:parent => self.name, :text => text, :api_type => 'json'}
+      resp = Snooby.request(Paths[:comment], data)
+      json = JSON.parse(resp)['json']
+
+      raise RedditError, jj(json) unless json['errors'].empty?
+    end
+  end
+
+  module Delete
+    # Deletes the calling object, which is either a post or a comment, as long
+    # as it belongs to the currently authorized user.
+    def delete
+      raise RedditError, 'You are not logged in.' unless Snooby.active
+      unless self.author == Snooby.active.username
+        #raise CommonDecencyError
+        raise RedditError, "You can't delete somebody else's content."
       end
 
-      uri = URI(Paths[:comment])
-      post = Net::HTTP::Post.new(uri.path)
-      data = {:parent => self.name, :text => text, :uh => Snooby.auth}
-      post.set_form_data(data)
-      json = JSON.parse(Conn.request(uri, post).body)['jquery']
-
-      # Bad magic numbers, I know, but getting rate-limited during a reply
-      # returns a bunch of serialized jQuery rather than a straightforward
-      # and meaningful message. Fleshing out errors is on the to-do list.
-      raise RedditError, json[14][3] if json.size == 17
+      Snooby.request(Paths[:delete], :id => self.name)
     end
+  end
+
+  module Compose
+    # Sends a message to the calling object, which is either a subreddit or a
+    # user; in the case of the former, this behaves like moderator mail.
+    def compose(subject, text)
+      raise RedditError, 'You are not logged in.' unless Snooby.active
+
+      to = (@kind == 'user' ? '' : '#') + @name
+      data = {:to => to, :subject => subject, :text => text}
+      Snooby.request(Paths[:compose], data)
+    end
+    alias :message :compose
+  end
+
+  module Voting
+    def vote(dir)
+      Snooby.request(Paths[:vote], :id => self.name, :dir => dir)
+    end
+
+    def upvote; vote 1; end
+    def rescind; vote 0; end
+    def downvote; vote -1; end
   end
 end

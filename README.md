@@ -4,7 +4,7 @@ Snooby is a wrapper around the reddit API written in Ruby. It aims to make autom
 ## Install
     gem install snooby
 
-## Example
+## Examples
 
 Here's one way you might go about implementing a very simple bot that constantly monitors new comments to scold users of crass language.
 
@@ -13,30 +13,42 @@ require 'snooby'
 
 probot = Snooby::Client.new('ProfanityBot, v1.0')
 probot.authorize!('ProfanityBot', 'hunter2')
+
 while true
-  new_comments = probot.r('all').comments
-  sleep 2 # Respecting the API is currently manual, will be fixed in future.
-  new_comments.each do |com|
+  probot.r('all').comments.each do |com|
     if com.body =~ /(vile|rotten|words)/
       com.reply("#{$&.capitalize} is a terrible word, #{com.author}!")
-      sleep 2
     end
   end
-  sleep 2
 end
 ```
-## Features
 
-Snooby is in the early stages of active development. Most of the code is structure, but there is *some* functionality in place. At the moment, Snooby can:
+That covers most of the core features, but here's a look at a few more in closer detail.
 
-* grab the first page of comments/posts for a user/subreddit
-* grab about data for users and subreddits
-* grab trophy data
-* reply to comments and posts
+```ruby
+reddit = Snooby::Client.new
+
+reddit.user('andrewsmith1986').about['comment_karma'] # => 548027
+reddit.u('violentacrez').trophies.size # => 46
+
+reddit.subreddit('askscience').posts[0].selftext # => We see lots of people...
+reddit.r('pics').message('Ban imgur.', "Wouldn't that be lulzy?")
+
+frontpage = reddit.r # note the lack of parameters
+frontpage.posts[-1].reply('Welcome to the front page.')
+
+# Downvote everything I've ever said. (Note: most of your votes won't count.)
+reddit.u('HazierPhonics').comments(1000).each { |c| c.downvote }
+
+# Similarly, upvote everything on the front page of /r/askscience. (Same disclaimer.)
+reddit.r('askscience').posts.each { |p| p.upvote }
+```
+
+The code is thoroughly documented and is the best place to start with questions.
 
 ## TODO
 
-* Pagination
-* Flesh out errors
+* Moderation
 * Much more thorough configuration file
 * Granular caching
+* Elegant solution to the "more comments" problem
