@@ -1,4 +1,5 @@
 module Snooby
+  
   class Subreddit
     include About, Posts, Comments, Compose
 
@@ -7,20 +8,25 @@ module Snooby
       @kind = 'subreddit'
     end
 
+    def submit(title, content)
+      data = {:title => title, :sr => @name}
+      data[:kind] = content[/^https?:/] ? 'link' : 'self'
+      data[:"#{$& ? 'url' : 'text'}"] = content
+      Snooby.request Paths[:submit], data
+    end
+
     # Alas, (un)subscribing by name alone doesn't work, so a separate call must
     # be made to obtain the subreddit's id, thus the wait. Maybe cache this?
-    def subscribe
+    def subscribe(un = '')
       sr = about['name']
-      Snooby.wait
-      Snooby.request(Paths[:subscribe], :action => 'sub', :sr => sr)
+      Snooby.request Paths[:subscribe], :action => "#{un}sub", :sr => sr
     end
-    alias :sub :subscribe
 
     def unsubscribe
-      sr = about['name']
-      Snooby.wait
-      Snooby.request(Paths[:subscribe], :action => 'unsub', :sr => sr)
+      subscribe 'un'
     end
+
+    alias :sub   :subscribe
     alias :unsub :unsubscribe
   end
 end
