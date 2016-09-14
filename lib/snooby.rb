@@ -80,7 +80,7 @@ module Snooby
   }
 
   # Provides a mapping of things and actions to their respective URL fragments.
-  Paths = paths.merge(paths) { |act, path| "http://www.reddit.com/#{path}" }
+  Paths = paths.merge(paths) { |act, path| "https://www.reddit.com/#{path}" }
 
   # Provides a mapping of things to a list of all the attributes present in the
   # relevant JSON object. A lot of these probably won't get used too often, but
