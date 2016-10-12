@@ -18,5 +18,5 @@ Gem::Specification.new do |gem|
   gem.required_ruby_version = '>= 1.9.3'
 
   gem.add_runtime_dependency('json', '~> 2.0')
-  gem.add_runtime_dependency('net-http-persistent', '>= 2.5')
+  gem.add_runtime_dependency('net-http-persistent', '~> 2.5')
 end
